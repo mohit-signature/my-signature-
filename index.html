@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Signature Generator</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Parisienne&family=Allura&family=Sacramento&family=Yellowtail&family=Kaushan+Script&family=Dancing+Script&family=Cookie&family=Courgette&family=Pacifico&display=swap" rel="stylesheet">
+
+<style>
+body{
+  margin:0;
+  background:linear-gradient(135deg,#141e30,#243b55);
+  font-family:Segoe UI,Arial;
+  color:#fff;
+}
+h1{text-align:center;margin:20px 0 5px}
+p{text-align:center;opacity:.85}
+
+.container{
+  max-width:1000px;
+  margin:20px auto;
+  background:#fff;
+  color:#000;
+  border-radius:20px;
+  padding:16px;
+}
+
+.controls{
+  display:grid;
+  grid-template-columns:1fr auto;
+  gap:10px;
+}
+.controls input,.controls button{
+  padding:14px;
+  font-size:16px;
+  border-radius:12px;
+  border:1px solid #ddd;
+}
+.controls button{
+  background:#6c5ce7;
+  color:#fff;
+  border:none;
+  cursor:pointer;
+}
+
+.tools{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(160px,1fr));
+  gap:10px;
+  margin-top:10px;
+}
+.tool{
+  background:#f3f4f6;
+  padding:10px;
+  border-radius:12px;
+  font-size:14px;
+}
+
+.grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(240px,1fr));
+  gap:12px;
+  margin-top:14px;
+}
+
+.card{
+  border:1px solid #eee;
+  border-radius:14px;
+  padding:14px;
+  cursor:pointer;
+  background:#fafafa;
+}
+.card.selected{outline:3px solid #22c55e}
+
+.sig{
+  font-style:italic;
+  display:inline-block;
+  position:relative;
+  white-space:nowrap;
+  transform-origin:left center;
+}
+
+/* optional connected underline */
+.sig.underline::after{
+  content:"";
+  position:absolute;
+  left:0;
+  right:6px;
+  height:2.5px;
+  bottom:-4px;
+  background:currentColor;
+  border-radius:3px;
+}
+
+footer{
+  text-align:center;
+  padding:14px;
+  font-size:13px;
+  color:#ccc;
+}
+
+canvas{display:none}
+</style>
+</head>
+
+<body>
+<h1>Signature Generator</h1>
+<p>1000+ handwritten signature styles • Full name • Optional underline</p>
+
+<div class="container">
+  <div class="controls">
+    <input id="nameInput" placeholder="Enter your full name">
+    <button onclick="generate()">Generate</button>
+  </div>
+
+  <div class="tools">
+    <div class="tool">
+      <label>Pen Color</label>
+      <input type="color" id="penColor" value="#000000">
+    </div>
+    <div class="tool">
+      <label>Pen Thickness</label>
+      <input type="range" id="thickness" min="2" max="6" value="3">
+    </div>
+    <div class="tool">
+      <label>
+        <input type="checkbox" id="underlineOpt">
+        Underline signature
+      </label>
+    </div>
+    <div class="tool">
+      <button onclick="download()">Download Selected</button>
+    </div>
+  </div>
+
+  <div id="grid" class="grid"></div>
+</div>
+
+<footer>
+© 2026 Signature Generator. All rights reserved.<br>
+All generated signatures are style-based and intended for personal use only.
+</footer>
+
+<canvas id="canvas"></canvas>
+
+<script>
+const fonts=[
+  "Great Vibes","Parisienne","Allura","Sacramento","Yellowtail",
+  "Kaushan Script","Dancing Script","Cookie","Courgette","Pacifico"
+];
+
+let selected=null;
+const TOTAL = 1000;
+const BATCH = 80;
+
+function rand(a,b){return Math.random()*(b-a)+a}
+
+function generate(){
+  const name=nameInput.value.trim();
+  if(!name) return alert("Enter your full name");
+
+  grid.innerHTML="";
+  selected=null;
+  let created=0;
+
+  function batch(){
+    for(let i=0;i<BATCH && created<TOTAL;i++,created++){
+      const card=document.createElement("div");
+      card.className="card";
+
+      const sig=document.createElement("div");
+      sig.className="sig";
+      sig.textContent=name;
+
+      if(underlineOpt.checked) sig.classList.add("underline");
+
+      sig.style.fontFamily=fonts[Math.floor(rand(0,fonts.length))];
+      sig.style.fontSize=rand(28,46)+"px";
+      sig.style.letterSpacing=rand(0.3,3.5)+"px";
+      sig.style.transform=`rotate(${rand(-6,6)}deg)`;
+      sig.style.color=penColor.value;
+
+      card.onclick=()=>{
+        document.querySelectorAll(".card").forEach(c=>c.classList.remove("selected"));
+        card.classList.add("selected");
+        selected={name, font:sig.style.fontFamily, underline:underlineOpt.checked};
+      };
+
+      card.appendChild(sig);
+      grid.appendChild(card);
+    }
+    if(created<TOTAL) requestAnimationFrame(batch);
+  }
+  batch();
+}
+
+function download(){
+  if(!selected) return alert("Select a signature");
+
+  const c=canvas,ctx=c.getContext("2d");
+  c.width=1400;
+  c.height=400;
+
+  ctx.fillStyle="#fff";
+  ctx.fillRect(0,0,c.width,c.height);
+
+  ctx.font=`90px ${selected.font}`;
+  ctx.fillStyle=penColor.value;
+  ctx.lineWidth=thickness.value;
+  ctx.lineCap="round";
+
+  let x=80,y=230;
+  for(const ch of selected.name){
+    ctx.fillText(ch,x+rand(-2,2),y+rand(-3,3));
+    x+=ctx.measureText(ch).width+rand(2,6);
+  }
+
+  if(selected.underline){
+    ctx.beginPath();
+    ctx.moveTo(80,y+8);
+    ctx.lineTo(x,y+8);
+    ctx.strokeStyle=penColor.value;
+    ctx.stroke();
+  }
+
+  const a=document.createElement("a");
+  a.download="signature.png";
+  a.href=c.toDataURL("image/png");
+  a.click();
+}
+</script>
+</body>
+</html>
